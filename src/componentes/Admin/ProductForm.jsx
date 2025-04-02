@@ -1,7 +1,7 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { supabase } from "../../lib/supabaseClient";
 
-const ProductForm = ({ setProducts }) => {
+const ProductForm = ({productToEdit, setProducts, onCancelEdit }) => {
     const fileInputRef = useRef(null)
     const [preview, setPreview] = useState(null);
     const [formData, setFormData] = useState({
@@ -12,69 +12,103 @@ const ProductForm = ({ setProducts }) => {
     });
     const [loading, setLoading] = useState(false);
 
+    useEffect(() => {
+        if (productToEdit) {
+            setFormData({
+                name: productToEdit.name,
+                description: productToEdit.description,
+                price: productToEdit.price.toString(),
+                image: null // No cargamos la imagen existente por seguridad
+            });
+        }
+    }, [productToEdit]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
 
         try {
-            // Validación básica del formulario
-            if (!formData.name || !formData.price || !formData.image) {
-                throw new Error("Todos los campos marcados con * son obligatorios");
-            }
+            const { error } = await supabase
+                    .from('products')
+                    .update({
+                        name: formData.name,
+                        description: formData.description,
+                        price: parseFloat(formData.price)
+                    })
+                    .eq('id', productToEdit.id);
 
-            // Verificar autenticación
-            const { data: { user }, error: authError } = await supabase.auth.getUser();
-            if (authError || !user) throw new Error("Debes iniciar sesión para realizar esta acción");
-
-            // Subir imagen
-            const sanitizedName = formData.image.name
-                .replace(/\s+/g, "_")
-                .replace(/[^a-zA-Z0-9_.-]/g, "");
-
-            const fileName = `products/${Date.now()}_${sanitizedName}`;
-            
-            const { data: imageData, error: uploadError } = await supabase.storage
-                .from('product-images')
-                .upload(fileName, formData.image, {
-                    contentType: formData.image.type,
-                    cacheControl: '3600',
-                    upsert: false
-                });
-
-            if (uploadError) throw uploadError;
-
-
-            // Insertar producto con el path
-            const { data: productData, error: insertError } = await supabase
-                .from('products')
-                .insert([{
-                    name: formData.name,
-                    description: formData.description,
-                    price: parseFloat(formData.price), // Convertir a número
-                    image_url: imageData.path // Guardamos solo el path, no la URL completa
-                }])
-                .select('*'); // Retorna el registro insertado
-
-            if (insertError) {
-                throw insertError
+            if (!error) {
+                // Actualizar estado local
+                setProducts(prev => prev.map(p => 
+                    p.id === productToEdit.id ? 
+                    { ...p, ...formData, price: parseFloat(formData.price) } 
+                    : p
+                ));
+                onCancelEdit(); // Cierra el modo edición
+                alert('Producto actualizado!');
             } else {
-                alert('Producto creado');
+                // ... (código existente para subir imagen y crear producto)
+            
+
+            // Validación básica del formulario
+                if (!formData.name || !formData.price || !formData.image) {
+                    throw new Error("Todos los campos marcados con * son obligatorios");
+                }
+
+                // Verificar autenticación
+                const { data: { user }, error: authError } = await supabase.auth.getUser();
+                if (authError || !user) throw new Error("Debes iniciar sesión para realizar esta acción");
+
+                // Subir imagen
+                const sanitizedName = formData.image.name
+                    .replace(/\s+/g, "_")
+                    .replace(/[^a-zA-Z0-9_.-]/g, "");
+
+                const fileName = `products/${Date.now()}_${sanitizedName}`;
+
+                const { data: imageData, error: uploadError } = await supabase.storage
+                    .from('product-images')
+                    .upload(fileName, formData.image, {
+                        contentType: formData.image.type,
+                        cacheControl: '3600',
+                        upsert: false
+                    });
+
+                if (uploadError) throw uploadError;
+
+
+                // Insertar producto con el path
+                const { data: productData, error: insertError } = await supabase
+                    .from('products')
+                    .insert([{
+                        name: formData.name,
+                        description: formData.description,
+                        price: parseFloat(formData.price), // Convertir a número
+                        image_url: imageData.path // Guardamos solo el path, no la URL completa
+                    }])
+                    .select('*'); // Retorna el registro insertado
+
+                if (insertError) {
+                    throw insertError
+                } else {
+                    alert('Producto creado');
+                    setFormData({ name: '', description: '', price: '', image: null });
+                    setPreview(null);
+
+                    // Resetear input de archivo
+                    if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                    }
+                }
+
+                // Actualizar estado (forma óptima)
+                setProducts(prev => [...prev, productData[0]]);
+
+                // Resetear formulario
                 setFormData({ name: '', description: '', price: '', image: null });
                 setPreview(null);
-                
-                // Resetear input de archivo
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                }
+                alert('Producto creado exitosamente');
             }
-
-            // Actualizar estado (forma óptima)
-            setProducts(prev => [...prev, productData[0]]);
-
-            // Resetear formulario
-            setFormData({ name: '', description: '', price: '', image: null });
-            setPreview(null);
-            alert('Producto creado exitosamente');
 
         } catch (error) {
             console.error("Error:", error);

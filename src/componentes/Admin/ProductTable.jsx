@@ -1,7 +1,10 @@
 import { supabase } from "../../lib/supabaseClient";
+import { FiEdit, FiTrash2 } from 'react-icons/fi';
 
 const ProductTable = ({ products, setProducts }) => {
     const handleDelete = async (id) => {
+        if (!window.confirm("¿Estás seguro de eliminar este producto?")) return;
+
         const {error} = await supabase
             .from('products')
             .delete()
@@ -30,10 +33,10 @@ const ProductTable = ({ products, setProducts }) => {
                             <td className="p-2">${product.price}</td>
                             <td className="p-2">
                                 <button className="text-blue-500 hover:text-blue-700 mr-2">
-                                    Editar
+                                    <FiEdit size={18} />
                                 </button>
                                 <button onClick={() => handleDelete(product.id)} className="text-red-500 hover:text-red-700">
-                                    Eliminar
+                                    <FiTrash2 size={18} />
                                 </button>
                             </td>
                         </tr>

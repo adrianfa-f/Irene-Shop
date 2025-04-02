@@ -5,6 +5,7 @@ import ProductForm from '../componentes/Admin/ProductForm'
 import ProductTable from '../componentes/Admin/ProductTable'
 
 const AdminPage = () => {
+    const [editingProduct, setEditingProduct] = useState(null);
     const [products, setProducts] = useState([])
     const [session, setSession] = useState(null)
     const navigate = useNavigate()
@@ -41,6 +42,11 @@ const AdminPage = () => {
         }
     }, [session])
 
+    const handleEdit = (product) => {
+        setEditingProduct(product);
+        // Aquí puedes abrir un modal/formulario de edición
+    };
+
     if (!session) return <div>Cargando...</div>
 
     return (
@@ -54,8 +60,16 @@ const AdminPage = () => {
                     Cerrar Sesión
                 </button>
             </div>
-            <ProductForm setProducts={setProducts} />
-            <ProductTable products={products} setProducts={setProducts} />
+            <ProductForm 
+                setProducts={setProducts} 
+                productToEdit={editingProduct}
+                onCancelEdit={() => setEditingProduct(null)}
+            />
+            <ProductTable 
+                products={products} 
+                setProducts={setProducts} 
+                onEdit={handleEdit}
+                />
         </div>
     )
 }
