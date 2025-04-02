@@ -41,8 +41,19 @@ const ProductForm = ({productToEdit, setProducts, onCancelEdit }) => {
                 name: productToEdit.name,
                 description: productToEdit.description,
                 price: productToEdit.price.toString(),
-                image: null // No cargamos la imagen existente por seguridad
+                image: null // Mantenemos null para no sobreescribir la imagen
             });
+            
+            // Obtener URL pública de la imagen existente
+            const { data: { publicUrl } } = supabase.storage
+                .from('product-images')
+                .getPublicUrl(productToEdit.image_url);
+                
+            setPreview(publicUrl);
+        } else {
+            setFormData({ name: '', description: '', price: '', image: null });
+            setPreview(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
         }
     }, [productToEdit]);
 
@@ -59,7 +70,7 @@ const ProductForm = ({productToEdit, setProducts, onCancelEdit }) => {
                     price: parseFloat(formData.price)
                 };
     
-                // Manejar nueva imagen si se subió
+                // Manejar nueva imagen solo si se seleccionó una
                 if (formData.image) {
                     const sanitizedName = formData.image.name
                         .replace(/\s+/g, "_")
@@ -84,13 +95,23 @@ const ProductForm = ({productToEdit, setProducts, onCancelEdit }) => {
     
                 if (error) throw error;
     
-                // Actualizar estado local con los nuevos datos
+                // Actualizar estado local
                 setProducts(prev => prev.map(p => 
                     p.id === productToEdit.id ? data[0] : p
                 ));
                 
-                // Cerrar edición y resetear
-                onCancelEdit();
+                // Resetear solo los campos editables y mantener preview
+                setFormData(prev => ({
+                    ...prev,
+                    name: data[0].name,
+                    description: data[0].description,
+                    price: data[0].price.toString(),
+                    image: null
+                }));
+                
+                // Limpiar input de archivo
+                if (fileInputRef.current) fileInputRef.current.value = '';
+                setPreview(null);
                 alert('Producto actualizado correctamente');
             } else {
                 // Lógica para nuevo producto
@@ -115,7 +136,7 @@ const ProductForm = ({productToEdit, setProducts, onCancelEdit }) => {
                 if (uploadError) throw uploadError;
     
                 // Insertar nuevo producto
-                const { data: productData, error: insertError } = await supabase
+                const { data: insertedData, error: insertError } = await supabase
                     .from('products')
                     .insert([{
                         name: formData.name,
@@ -124,11 +145,15 @@ const ProductForm = ({productToEdit, setProducts, onCancelEdit }) => {
                         image_url: imageData.path
                     }])
                     .select('*');
+                
+                if (insertError) throw insertError;
+                
+                // Actualizar estado y resetear formulario
+                setProducts(prev => [...prev, insertedData[0]]);
     
                 if (insertError) throw insertError;
     
-                // Actualizar estado y resetear formulario
-                setProducts(prev => [...prev, productData[0]]);
+                // Reset completo
                 setFormData({ name: '', description: '', price: '', image: null });
                 setPreview(null);
                 if (fileInputRef.current) fileInputRef.current.value = '';
@@ -193,7 +218,7 @@ const ProductForm = ({productToEdit, setProducts, onCancelEdit }) => {
                     }}
                     className="w-full p-2 border rounded"
                     accept="image/*"
-                    required
+                    required={!productToEdit} // Solo requerido cuando no está editando
                 />
                 {preview && (
                     <img 
