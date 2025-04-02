@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { FiXCircle, FiCheckCircle } from 'react-icons/fi';
 
 const ProductForm = ({productToEdit, setProducts, onCancelEdit }) => {
     const fileInputRef = useRef(null)
@@ -28,7 +29,8 @@ const ProductForm = ({productToEdit, setProducts, onCancelEdit }) => {
         setLoading(true);
 
         try {
-            const { error } = await supabase
+            if (productToEdit) {
+                const { error } = await supabase
                     .from('products')
                     .update({
                         name: formData.name,
@@ -37,20 +39,18 @@ const ProductForm = ({productToEdit, setProducts, onCancelEdit }) => {
                     })
                     .eq('id', productToEdit.id);
 
-            if (!error) {
-                // Actualizar estado local
-                setProducts(prev => prev.map(p => 
-                    p.id === productToEdit.id ? 
-                    { ...p, ...formData, price: parseFloat(formData.price) } 
-                    : p
-                ));
-                onCancelEdit(); // Cierra el modo edición
-                alert('Producto actualizado!');
+                if (!error) {
+                    // Actualizar estado local
+                    setProducts(prev => prev.map(p => 
+                        p.id === productToEdit.id ? 
+                        { ...p, ...formData, price: parseFloat(formData.price) } 
+                        : p
+                    ));
+                    onCancelEdit(); // Cierra el modo edición
+                    alert('Producto actualizado!');
+                }
             } else {
-                // ... (código existente para subir imagen y crear producto)
-            
-
-            // Validación básica del formulario
+                // Validación básica del formulario
                 if (!formData.name || !formData.price || !formData.image) {
                     throw new Error("Todos los campos marcados con * son obligatorios");
                 }
@@ -120,13 +120,25 @@ const ProductForm = ({productToEdit, setProducts, onCancelEdit }) => {
 
     return (
         <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-            <h2 className="text-2xl font-semibold mb-4">Agregar Producto</h2>
+            {productToEdit && (
+                <button
+                    onClick={onCancelEdit}
+                    className="absolute top-2 right-2 text-gray-500 hover:text-red-600"
+                >
+                    <FiXCircle size={24} />
+                </button>
+            )}
+
+            <h2 className="text-2xl font-semibold mb-4">
+                {productToEdit ? 'Editar Producto' : 'Agregar Producto'}
+            </h2>
+
             <form onSubmit={handleSubmit} className="space-y-4">
                 <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    placeholder="Nombre *"
+                    placeholder="Nombre"
                     className="w-full p-2 border rounded"
                     required
                 />
@@ -166,13 +178,26 @@ const ProductForm = ({productToEdit, setProducts, onCancelEdit }) => {
                         className="w-32 h-32 object-cover rounded mt-2"
                     />
                 )}
-                <button 
-                    type="submit" 
-                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
-                    disabled={loading}
-                >
-                    {loading ? 'Guardando...' : 'Guardar Producto'}
-                </button>
+                <div className="flex gap-4">
+                    <button 
+                        type="submit" 
+                        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
+                        disabled={loading}
+                    >
+                        {loading ? 'Guardando...' : <FiCheckCircle size={18} />}
+                        {productToEdit ? 'Guardar Cambios' : 'Crear Producto'}
+                    </button>
+                    {productToEdit && (
+                        <button
+                            type="button"
+                            onClick={onCancelEdit}
+                            className="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 flex items-center gap-2"
+                        >
+                            <FiXCircle size={18} />
+                            Cancelar
+                        </button>
+                    )}
+                </div>
             </form>
         </div>
     );
