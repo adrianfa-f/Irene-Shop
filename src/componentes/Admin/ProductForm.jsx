@@ -19,6 +19,28 @@ const ProductForm = ({productToEdit, setProducts, onCancelEdit }) => {
                 name: productToEdit.name,
                 description: productToEdit.description,
                 price: productToEdit.price.toString(),
+                image: null
+            });
+
+            // Mostrar preview de imagen existente
+            if (productToEdit.image_url) {
+                const { data: { publicUrl } } = supabase.storage
+                    .from('product-images')
+                    .getPublicUrl(productToEdit.image_url);
+                setPreview(publicUrl);
+            }
+        } else {
+            setFormData({ name: '', description: '', price: '', image: null });
+            setPreview(null);
+        }
+    }, [productToEdit]);
+
+    useEffect(() => {
+        if (productToEdit) {
+            setFormData({
+                name: productToEdit.name,
+                description: productToEdit.description,
+                price: productToEdit.price.toString(),
                 image: null // No cargamos la imagen existente por seguridad
             });
         }
@@ -27,92 +49,94 @@ const ProductForm = ({productToEdit, setProducts, onCancelEdit }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-
+    
         try {
             if (productToEdit) {
-                const { error } = await supabase
-                    .from('products')
-                    .update({
-                        name: formData.name,
-                        description: formData.description,
-                        price: parseFloat(formData.price)
-                    })
-                    .eq('id', productToEdit.id);
-
-                if (!error) {
-                    // Actualizar estado local
-                    setProducts(prev => prev.map(p => 
-                        p.id === productToEdit.id ? 
-                        { ...p, ...formData, price: parseFloat(formData.price) } 
-                        : p
-                    ));
-                    onCancelEdit(); // Cierra el modo edición
-                    alert('Producto actualizado!');
+                // Lógica de actualización
+                let updateData = {
+                    name: formData.name,
+                    description: formData.description,
+                    price: parseFloat(formData.price)
+                };
+    
+                // Manejar nueva imagen si se subió
+                if (formData.image) {
+                    const sanitizedName = formData.image.name
+                        .replace(/\s+/g, "_")
+                        .replace(/[^a-zA-Z0-9_.-]/g, "");
+    
+                    const fileName = `products/${Date.now()}_${sanitizedName}`;
+    
+                    const { data: imageData, error: uploadError } = await supabase.storage
+                        .from('product-images')
+                        .upload(fileName, formData.image);
+    
+                    if (uploadError) throw uploadError;
+                    
+                    updateData.image_url = imageData.path;
                 }
+    
+                const { data, error } = await supabase
+                    .from('products')
+                    .update(updateData)
+                    .eq('id', productToEdit.id)
+                    .select('*');
+    
+                if (error) throw error;
+    
+                // Actualizar estado local con los nuevos datos
+                setProducts(prev => prev.map(p => 
+                    p.id === productToEdit.id ? data[0] : p
+                ));
+                
+                // Cerrar edición y resetear
+                onCancelEdit();
+                alert('Producto actualizado correctamente');
             } else {
-                // Validación básica del formulario
+                // Lógica para nuevo producto
                 if (!formData.name || !formData.price || !formData.image) {
                     throw new Error("Todos los campos marcados con * son obligatorios");
                 }
-
-                // Verificar autenticación
-                const { data: { user }, error: authError } = await supabase.auth.getUser();
-                if (authError || !user) throw new Error("Debes iniciar sesión para realizar esta acción");
-
+    
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) throw new Error("Debes iniciar sesión para realizar esta acción");
+    
                 // Subir imagen
                 const sanitizedName = formData.image.name
                     .replace(/\s+/g, "_")
                     .replace(/[^a-zA-Z0-9_.-]/g, "");
-
+    
                 const fileName = `products/${Date.now()}_${sanitizedName}`;
-
+    
                 const { data: imageData, error: uploadError } = await supabase.storage
                     .from('product-images')
-                    .upload(fileName, formData.image, {
-                        contentType: formData.image.type,
-                        cacheControl: '3600',
-                        upsert: false
-                    });
-
+                    .upload(fileName, formData.image);
+    
                 if (uploadError) throw uploadError;
-
-
-                // Insertar producto con el path
+    
+                // Insertar nuevo producto
                 const { data: productData, error: insertError } = await supabase
                     .from('products')
                     .insert([{
                         name: formData.name,
                         description: formData.description,
-                        price: parseFloat(formData.price), // Convertir a número
-                        image_url: imageData.path // Guardamos solo el path, no la URL completa
+                        price: parseFloat(formData.price),
+                        image_url: imageData.path
                     }])
-                    .select('*'); // Retorna el registro insertado
-
-                if (insertError) {
-                    throw insertError
-                } else {
-                    alert('Producto creado');
-                    setFormData({ name: '', description: '', price: '', image: null });
-                    setPreview(null);
-
-                    // Resetear input de archivo
-                    if (fileInputRef.current) {
-                        fileInputRef.current.value = '';
-                    }
-                }
-
-                // Actualizar estado (forma óptima)
+                    .select('*');
+    
+                if (insertError) throw insertError;
+    
+                // Actualizar estado y resetear formulario
                 setProducts(prev => [...prev, productData[0]]);
-
-                // Resetear formulario
                 setFormData({ name: '', description: '', price: '', image: null });
                 setPreview(null);
+                if (fileInputRef.current) fileInputRef.current.value = '';
                 alert('Producto creado exitosamente');
             }
-
         } catch (error) {
             console.error("Error:", error);
-            alert(error.message || "Error al crear el producto");
+            alert(error.message || "Error al procesar el producto");
         } finally {
             setLoading(false);
         }
@@ -179,14 +203,20 @@ const ProductForm = ({productToEdit, setProducts, onCancelEdit }) => {
                     />
                 )}
                 <div className="flex gap-4">
-                    <button 
-                        type="submit" 
-                        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
-                        disabled={loading}
-                    >
-                        {loading ? 'Guardando...' : <FiCheckCircle size={18} />}
-                        {productToEdit ? 'Guardar Cambios' : 'Crear Producto'}
-                    </button>
+                <button 
+                    type="submit" 
+                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400 flex items-center gap-2 justify-center"
+                    disabled={loading}
+                >
+                    {loading ? (
+                        'Guardando...'
+                    ) : (
+                        <>
+                            <FiCheckCircle size={18} />
+                            {productToEdit ? 'Guardar Cambios' : 'Crear Producto'}
+                        </>
+                    )}
+                </button>
                     {productToEdit && (
                         <button
                             type="button"

@@ -42,11 +42,6 @@ const AdminPage = () => {
         }
     }, [session])
 
-    const handleEdit = (product) => {
-        setEditingProduct(product);
-        // Aquí puedes abrir un modal/formulario de edición
-    };
-
     if (!session) return <div>Cargando...</div>
 
     return (
@@ -61,15 +56,15 @@ const AdminPage = () => {
                 </button>
             </div>
             <ProductForm 
-                setProducts={setProducts} 
                 productToEdit={editingProduct}
+                setProducts={setProducts}
                 onCancelEdit={() => setEditingProduct(null)}
             />
             <ProductTable 
-                products={products} 
-                setProducts={setProducts} 
-                onEdit={handleEdit}
-                />
+                products={products}
+                setProducts={setProducts}
+                onEdit={setEditingProduct} 
+            />
         </div>
     )
 }
