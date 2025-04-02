@@ -14,7 +14,7 @@ const Login = () => {
             email,
             options: {
                 shouldCreateUser: false,
-                emailRedirectTo: 'http://localhost:3000/admin'
+                emailRedirectTo: 'https://ireneshape.netlify.app/admin'
             }
         })
 
