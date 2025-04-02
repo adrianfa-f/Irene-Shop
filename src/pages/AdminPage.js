@@ -21,7 +21,7 @@ const AdminPage = () => {
         })
 
         return () => subscription?.unsubscribe()
-    }, [])
+    }, [navigate])
 
     useEffect(() => {
         try {
