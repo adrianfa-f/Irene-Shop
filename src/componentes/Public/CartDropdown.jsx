@@ -36,7 +36,7 @@ const CartDropdown = ({ cart, removeFromCart, onClose, generateWhatsAppMessage }
             {cart.length > 0 && (
                 <div className="p-4 bg-gray-50">
                     <a
-                        href={`https://wa.me/+5355879391?text=${generateWhatsAppMessage(cart)}`}
+                        href={`https://wa.me/+5350558320?text=${generateWhatsAppMessage(cart)}`}
                         target="_blank"
                         rel="noreferrer"
                         className="w-full bg-green-500 text-white py-2 px-4 rounded-lg flex items-center justify-center hover:bg-green-600"

@@ -68,7 +68,7 @@ const PublicCatalog = () => {
             </div>
             <div className='fixed bottom-2 right-2 '>
                 <a 
-                    href={`https://wa.me/+5355879391?text=${generateWhatsAppMessage()}`} 
+                    href={`https://wa.me/+5350558320?text=${generateWhatsAppMessage()}`} 
                     target="_blank" 
                     rel="noreferrer"
                 >
